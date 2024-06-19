@@ -99,7 +99,7 @@
                 switchTeam();
 
                 // get new question
-                getQuestion();
+                getQuestion(false);
 
             } else {
                 // temporary green color for correct answer
@@ -133,9 +133,16 @@
             .then(data => {
 
                 document.querySelector('.question').innerHTML = data.Question;
-                for (let i = 0; i < 4; i++) {
-                    document.querySelector('.choices').innerHTML += `<button class="w-full bg-gray-500 text-white p-2 m-2 rounded-lg" onclick="chooseAnswer(${i})">${data.Answers[i]}</button>`;
-                }
+                    if (first) {
+                        for (let i = 0; i < 4; i++) {
+                            document.querySelector('.choices').innerHTML += `<button class="w-full bg-gray-500 text-white p-2 m-2 rounded-lg" onclick="chooseAnswer(${i})">${data.Answers[i]}</button>`;
+                        }
+                    } else {
+                        document.querySelector('.choices').innerHTML = ``
+                        for (let i = 0; i < 4; i++) {
+                            document.querySelector('.choices').innerHTML += `<button class="w-full bg-gray-500 text-white p-2 m-2 rounded-lg" onclick="chooseAnswer(${i})">${data.Answers[i]}</button>`;
+                        }
+                    }
 
                 localStorage.setItem('correctAnswer', data.CorrectAnswer);
             });

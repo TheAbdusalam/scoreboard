@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Welcome to the CODELY game</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/htmx.org@1"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body>
+    <div class="container mx-auto rounded-lg primary-bg h-screen">
+            <img src="logo.png" alt="logo" class="mx-auto " />
+        <h1 class="text-4xl font-bold text-center mt-10">Welcome to the CODELY game</h1>
+            <div class="flex justify-center mt-10 teams-list"></div>
+
+            <input type="text" class="bg-white rounded-lg p-4 m-4" placeholder="Enter team name" id="Name" />
+
+        <div class="flex justify-center mt-10 ">
+            <div class="flex justify-center mt-10">
+                <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Add team</button>
+            </div>
+            <div class="flex justify-center ml-5 mt-10 start-game">
+                    <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"> Start game</button>
+            </div>
+        </div>
+
+    </div>
+</body>
+
+<style>
+    .primary-bg {
+        background-color: #f83567;
+    }
+</style>
+
+<script>
+    fetch('/teams')
+        .then(response => response.json())
+        .then(data => {
+            const teamsList = document.querySelector('.teams-list');
+            teamsList.innerHTML = data.map(team => `<div class="bg-white rounded-lg p-4 m-4">${team.Name}</div>`).join('');
+        });
+
+    function addTeam() {
+        const Name = document.querySelector('#Name').value;
+        if (!Name) {
+            alert('Please enter a team name');
+            return;
+        }
+
+        fetch('/addTeam?name=' + Name, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+        })
+            .then(response => response)
+            .then(data => {
+                if (data.status !== 200) {
+                    alert('Team name already exists');
+                    return;
+                }
+
+                const teamsList = document.querySelector('.teams-list');
+                teamsList.innerHTML += `<div class="bg-white rounded-lg p-4 m-4">${Name}</div>`;
+
+                document.querySelector('#Name').value = '';
+            });
+    }
+
+    function startGame() {
+        if (document.querySelector('.teams-list').children.length < 2) {
+            alert('Please add at least 2 teams to start the game');
+            return;
+        }
+
+        if (document.querySelector('.teams-list').children.length % 2 !== 0) {
+            alert('Please add an even number of teams to start the game');
+            return;
+        }
+
+        window.location.href = '/game.html';
+    }
+
+    document.querySelector('button').addEventListener('click', addTeam);
+    document.querySelector('.start-game button').addEventListener('click', startGame);
+    document.querySelector('#Name').addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+            addTeam();
+        }
+    });
+</script>
+
+</html>
+
+
+

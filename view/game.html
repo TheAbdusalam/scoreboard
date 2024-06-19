@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scoreboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/htmx.org@1.6.1/dist/htmx.min.js" defer></script>
+</head>
+<body class="bg-gray-100">
+        <div class="grid grid-flow-col grid-cols-4">
+            <div class="isFirstSelected text-white px-10 py-5 h-screen grid items-center text-center text-xl bg-green-600 font-bold cursor-pointer" onclick="switchTeam()">
+                <div>
+                    <span class="first_team_name"></span>
+                    <div class="text-5xl first_team_score"></div>
+                </div>
+            </div>
+            <div class="col-span-2">
+                <div class="flex justify-center items-center h-20 ">
+                    <span class="text-4xl" id="clock"></span>
+                </div>
+
+                <!-- Question and Choices -->
+                <div class="flex justify-center h-screen bg-gray-200">
+                    <div class="w-2/3 bg-white p-5 mt-10 h-1/2 rounded-lg shadow-lg">
+                        <h1 class="text-2xl font-bold question"></h1>
+                        <div class="mt-5 choices"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="isSecondSelected text-white px-10 py-5 h-screen grid items-center text-center text-xl bg-black font-bold cursor-pointer" onclick="switchTeam()">
+                <div>
+                    <span class="second_team_name"></span>
+                    <div class="text-5xl second_team_score"></div>
+                </div>
+            </div>
+        </div>
+</body>
+
+<script>
+        var minutes = 00;
+        var seconds = 10;
+        var time = minutes * 60 + seconds;
+
+        var clock = document.getElementById('clock');
+
+        function startTime() {
+            var interval = setInterval(function() {
+                var minutes = Math.floor(time / 60);
+                var seconds = time % 60;
+
+                clock.innerHTML = minutes + ':' + seconds;
+
+                if (time == 0) {
+                    clock.style.color = 'red';
+                    clock.innerHTML = 'TIME IS UP!!!';
+                    
+                    clearInterval(interval);
+                } else {
+                    time--;
+                }
+            }, 1000);
+        }
+
+        function stopTime() {
+            clearInterval(interval);
+        }
+
+        function switchTeam() {
+            localStorage.setItem('current_team', localStorage.getItem('current_team') == 'first' ? 'second' : 'first');
+
+            if (localStorage.getItem('current_team') == 'first') {
+                document.querySelector('.isFirstSelected').classList.add('bg-green-600');
+                document.querySelector('.isFirstSelected').classList.remove('bg-black');
+
+                document.querySelector('.isSecondSelected').classList.add('bg-black');
+                document.querySelector('.isSecondSelected').classList.remove('bg-green-600');
+            } else {
+                document.querySelector('.isFirstSelected').classList.add('bg-black');
+                document.querySelector('.isFirstSelected').classList.remove('bg-green-600');
+
+                document.querySelector('.isSecondSelected').classList.add('bg-green-600');
+                document.querySelector('.isSecondSelected').classList.remove('bg-black');
+            }
+        }
+
+        function chooseAnswer(number) {
+            team = localStorage.getItem('current_team');
+            correct = (number == localStorage.getItem('correctAnswer') ? true : false)
+
+            if(!correct) {
+                // temporary red color for wrong answer
+                document.querySelectorAll('.choices button')[number].classList.add('bg-red-500');
+                setTimeout(() => {
+                    document.querySelectorAll('.choices button')[number].classList.remove('bg-red-500');
+                }, 1000);
+
+                // switch team
+                switchTeam();
+
+                // get new question
+                getQuestion();
+
+            } else {
+                // temporary green color for correct answer
+                document.querySelectorAll('.choices button')[number].classList.add('bg-green-500');
+                setTimeout(() => {
+                    document.querySelectorAll('.choices button')[number].classList.remove('bg-green-500');
+                }, 1000);
+            }
+        }
+
+        // Fetch the question and choices
+        fetch('http://localhost:8080/startGame')
+            .then(response => response.json())
+            .then(data => {
+                document.querySelector('.first_team_name').innerHTML = data.First_team.Name;
+                document.querySelector('.second_team_name').innerHTML = data.Second_team.Name;
+
+                document.querySelector('.first_team_score').innerHTML = data.First_team.FirstRound;
+                document.querySelector('.second_team_score').innerHTML = data.Second_team.FirstRound;
+
+                localStorage.setItem('first_team_name', data.First_team.Name);
+                localStorage.setItem('second_team_name', data.Second_team.Name);
+
+                localStorage.setItem('current_team', 'first');
+            });
+
+        // Fetch the question and choices
+        function getQuestion(first = true) {
+            fetch('http://localhost:8080/getQuestion')
+            .then(response => response.json())
+            .then(data => {
+
+                document.querySelector('.question').innerHTML = data.Question;
+                for (let i = 0; i < 4; i++) {
+                    document.querySelector('.choices').innerHTML += `<button class="w-full bg-gray-500 text-white p-2 m-2 rounded-lg" onclick="chooseAnswer(${i})">${data.Answers[i]}</button>`;
+                }
+
+                localStorage.setItem('correctAnswer', data.CorrectAnswer);
+            });
+
+            startTime();
+        }
+
+        getQuestion();
+</script>
+
+</html>

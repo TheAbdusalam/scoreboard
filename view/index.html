@@ -1,59 +1,68 @@
 <!DOCTYPE html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-    <title>Welcome to the CODELY game</title>
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to the CODELY Game</title>
     <script src="https://cdn.jsdelivr.net/npm/htmx.org@1"></script>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 
-<body>
-    <div class="container mx-auto rounded-lg primary-bg h-screen">
-            <img src="logo.png" alt="logo" class="mx-auto " />
-        <h1 class="text-4xl font-bold text-center mt-10">Welcome to the CODELY game</h1>
-            <div class="flex justify-center mt-10 teams-list"></div>
-
-            <input type="text" class="bg-white rounded-lg p-4 m-4" placeholder="Enter team name" id="Name" />
-
-        <div class="flex justify-center mt-10 ">
-            <div class="flex justify-center mt-10">
-                <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Add team</button>
-            </div>
-            <div class="flex justify-center ml-5 mt-10 start-game">
-                    <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"> Start game</button>
+<body class="primary-bg h-screen flex flex-col items-center justify-center">
+    <img src="logo.png" alt="logo" class="mx-auto h-32" />
+    <div class="container mx-auto mt-5 p-8 bg-white rounded-lg shadow-lg w-3/4 max-w-2xl">
+        <div class="mt-8">
+            <input type="text" class="bg-gray-100 rounded-lg p-4 w-full text-lg" placeholder="Enter team name" id="Name" />
+            <div class="flex justify-between mt-4">
+                <button id="add-team" class=" bg-rose-100 border-green-700 text-black font-bold py-2 px-4 rounded w-full">Add Team</button>
+            <button id="start-game" class="bg-rose-500 hover:bg-rose-700 text-white font-bold py-2 px-4 rounded ml-4 w-full">Start Game</button>
             </div>
         </div>
-
+        
+        <div class="mt-8">
+            <h2 class="text-2xl font-semibold text-center">Teams</h2>
+            <div class="flex flex-wrap justify-center mt-4 teams-list"></div>
+        </div>
     </div>
-</body>
 
-<style>
-    .primary-bg {
-        background-color: #f83567;
-    }
-</style>
+    <style>
+        .primary-bg {
+            background-color: #f83567;
+        }
+    </style>
 
-<script>
-    fetch('/teams')
-        .then(response => response.json())
-        .then(data => {
-            const teamsList = document.querySelector('.teams-list');
-            teamsList.innerHTML = data.map(team => `<div class="bg-white rounded-lg p-4 m-4">${team.Name}</div>`).join('');
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            fetch('/teams')
+                .then(response => response.json())
+                .then(data => {
+                    const teamsList = document.querySelector('.teams-list');
+                    teamsList.innerHTML = data.map(team => `<div class="bg-gray-200 rounded-lg p-4 m-2 text-center">${team.Name}</div>`).join('');
+                });
+
+            document.querySelector('#add-team').addEventListener('click', addTeam);
+            document.querySelector('#start-game').addEventListener('click', startGame);
+            document.querySelector('#Name').addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') {
+                    addTeam();
+                }
+            });
         });
 
-    function addTeam() {
-        const Name = document.querySelector('#Name').value;
-        if (!Name) {
-            alert('Please enter a team name');
-            return;
-        }
+        function addTeam() {
+            const Name = document.querySelector('#Name').value.trim();
+            if (!Name) {
+                alert('Please enter a team name');
+                return;
+            }
 
-        fetch('/addTeam?name=' + Name, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-        })
+            fetch('/addTeam?name=' + Name, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+            })
             .then(response => response)
             .then(data => {
                 if (data.status !== 200) {
@@ -62,36 +71,25 @@
                 }
 
                 const teamsList = document.querySelector('.teams-list');
-                teamsList.innerHTML += `<div class="bg-white rounded-lg p-4 m-4">${Name}</div>`;
-
+                teamsList.innerHTML += `<div class="bg-gray-200 rounded-lg p-4 m-2 text-center">${Name}</div>`;
                 document.querySelector('#Name').value = '';
             });
-    }
-
-    function startGame() {
-        if (document.querySelector('.teams-list').children.length < 2) {
-            alert('Please add at least 2 teams to start the game');
-            return;
         }
 
-        if (document.querySelector('.teams-list').children.length % 2 !== 0) {
-            alert('Please add an even number of teams to start the game');
-            return;
+        function startGame() {
+            const teamsList = document.querySelector('.teams-list');
+            if (teamsList.children.length < 2) {
+                alert('Please add at least 2 teams to start the game');
+                return;
+            }
+
+            if (teamsList.children.length % 2 !== 0) {
+                alert('Please add an even number of teams to start the game');
+                return;
+            }
+
+            window.location.href = '/game.html';
         }
-
-        window.location.href = '/game.html';
-    }
-
-    document.querySelector('button').addEventListener('click', addTeam);
-    document.querySelector('.start-game button').addEventListener('click', startGame);
-    document.querySelector('#Name').addEventListener('keypress', function (e) {
-        if (e.key === 'Enter') {
-            addTeam();
-        }
-    });
-</script>
-
+    </script>
+</body>
 </html>
-
-
-

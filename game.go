@@ -6,8 +6,12 @@ type Game struct {
 	Questions   Questions
 }
 
-func (g *Game) Setup() {}
+func (g *Game) Start() {
+	// g.First_team.Played = true
+	// g.Second_team.Played = true
 
-func (g *Game) Start() {}
+	g.First_team.Update()
+	g.Second_team.Update()
+}
 
 func (g *Game) End() {}

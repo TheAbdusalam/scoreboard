@@ -7,24 +7,29 @@
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <script src="https://unpkg.com/htmx.org@1.6.1/dist/htmx.min.js" defer></script>
 </head>
-<body class="bg-gray-100">
+<body class="w-full">
         <div class="grid grid-flow-col grid-cols-4">
-            <div class="isFirstSelected text-white px-10 py-5 h-screen grid items-center text-center text-xl bg-green-600 font-bold cursor-pointer" onclick="switchTeam()">
+            <div class="isFirstSelected text-white px-10 py-5 h-screen grid items-center text-center text-xl primary-bg font-bold cursor-pointer" onclick="switchTeam()">
                 <div>
                     <span class="first_team_name"></span>
                     <div class="text-5xl first_team_score"></div>
                 </div>
             </div>
-            <div class="col-span-2">
+            <div class="col-span-2 px-20">
                 <div class="flex justify-center items-center h-20 ">
-                    <span class="text-4xl" id="clock"></span>
+                    <span class="text-4xl font-bold" id="clock">10:00</span>
                 </div>
 
                 <!-- Question and Choices -->
-                <div class="flex justify-center h-screen bg-gray-200">
-                    <div class="w-2/3 bg-white p-5 mt-10 h-1/2 rounded-lg shadow-lg">
+                <div class="flex justify-center px-15 mt-10 max-w-2/3">
+                    <div class="rounded-lg text-center">
                         <h1 class="text-2xl font-bold question"></h1>
                         <div class="mt-5 choices"></div>
+
+                        <button class="bg-gray-400 text-white p-2 m-2 rounded-lg" onclick="window.location.href = '/sketch.html'">Next Game</button>
+
+                        <button class="bg-gray-400 text-white p-2 m-2 rounded-lg" onclick="window.location.href = '/game.html'">Next Team</button>
+                        <button class="bg-gray-400 text-white p-2 m-2 rounded-lg" onclick="getQuestion(false)">Next Question</button>
                     </div>
                 </div>
             </div>
@@ -35,51 +40,92 @@
                 </div>
             </div>
         </div>
+
+        <!-- Scoreboard Table of all teams and standings -->
+        <div class="mt-10 w-3/4 mx-auto">
+            <h1 class="text-5xl text-center font-bold">Standings</h1>
+            <hr class="w-1/5 mx-auto border-2 border-gray-300 my-5">
+            <table class="mx-auto text-2xl mb-20 table-auto border-collapse border-b-1 w-full overflow-hidden">
+                <thead>
+                    <tr class="text-left primary-bg text-white">
+                        <th class="px-4 py-2 bg-red-600"></th>
+                        <th class="px-4 py-2 bg-red-600">Name</th>
+                        <th class="px-4 py-2">First Round</th>
+                        <th class="px-4 py-2 bg-red-600">Second Round</th>
+                        <th class="px-4 py-2">Third Round</th>
+                        <th class="px-4 py-2 bg-red-600">Fourth Round</th>
+                        <th class="px-4 py-2">Total</th>
+                    </tr>
+                </thead>
+                <tbody class="teams_body"></tbody>
+            </table>
+        </div>
+
 </body>
 
+<style>
+    .primary-bg {
+        background-color: #f83567;
+    }
+</style>
+
 <script>
-        var minutes = 00;
-        var seconds = 10;
-        var time = minutes * 60 + seconds;
+        var host = '127.0.0.1:8080';
+        var timer; // Define timer outside of the function
+        var ws = new WebSocket('ws://' + host + '/stream');
 
-        var clock = document.getElementById('clock');
+        document.addEventListener('DOMContentLoaded', function() {
+            getStream();
+        });
 
-        function startTime() {
-            var interval = setInterval(function() {
-                var minutes = Math.floor(time / 60);
-                var seconds = time % 60;
+        document.addEventListener('beforeunload', function() {
+            if (ws) {
+                ws.close();
+            }
+        });
 
-                clock.innerHTML = minutes + ':' + seconds;
+        function startTimer() {
+            var minutes = 10;
+            var seconds = 0;
+            var time = minutes * 60 + seconds;
+            var clock = document.getElementById('clock');
 
-                if (time == 0) {
-                    clock.style.color = 'red';
-                    clock.innerHTML = 'TIME IS UP!!!';
-                    
-                    clearInterval(interval);
-                } else {
-                    time--;
+            // Clear the interval if it's already running
+            if (timer) {
+                clearInterval(timer);
+            }
+            
+            timer = setInterval(function() {
+                minutes = parseInt(time / 60, 10);
+                seconds = parseInt(time % 60, 10);
+
+                minutes = minutes < 10 ? "0" + minutes : minutes;
+                seconds = seconds < 10 ? "0" + seconds : seconds;
+
+                clock.textContent = minutes + ":" + seconds;
+                
+                if (--time < 0) {
+                    clearInterval(timer);
+                    clock.textContent = "00:00";
                 }
             }, 1000);
         }
 
-        function stopTime() {
-            clearInterval(interval);
-        }
 
         function switchTeam() {
             localStorage.setItem('current_team', localStorage.getItem('current_team') == 'first' ? 'second' : 'first');
 
             if (localStorage.getItem('current_team') == 'first') {
-                document.querySelector('.isFirstSelected').classList.add('bg-green-600');
+                document.querySelector('.isFirstSelected').classList.add('primary-bg');
                 document.querySelector('.isFirstSelected').classList.remove('bg-black');
 
                 document.querySelector('.isSecondSelected').classList.add('bg-black');
-                document.querySelector('.isSecondSelected').classList.remove('bg-green-600');
+                document.querySelector('.isSecondSelected').classList.remove('primary-bg');
             } else {
                 document.querySelector('.isFirstSelected').classList.add('bg-black');
-                document.querySelector('.isFirstSelected').classList.remove('bg-green-600');
+                document.querySelector('.isFirstSelected').classList.remove('primary-bg');
 
-                document.querySelector('.isSecondSelected').classList.add('bg-green-600');
+                document.querySelector('.isSecondSelected').classList.add('primary-bg');
                 document.querySelector('.isSecondSelected').classList.remove('bg-black');
             }
         }
@@ -95,23 +141,37 @@
                     document.querySelectorAll('.choices button')[number].classList.remove('bg-red-500');
                 }, 1000);
 
-                // switch team
-                switchTeam();
+                if (localStorage.getItem('next_team_answered') == 'true') {
+                    getQuestion(false);
+                }
 
-                // get new question
-                getQuestion(false);
-
+                localStorage.setItem('next_team_answered', true);
             } else {
-                // temporary green color for correct answer
+                // temporary rose color for correct answer
                 document.querySelectorAll('.choices button')[number].classList.add('bg-green-500');
                 setTimeout(() => {
                     document.querySelectorAll('.choices button')[number].classList.remove('bg-green-500');
                 }, 1000);
+
+                // update score
+                document.querySelector(`.${team}_team_score`).innerHTML = parseInt(document.querySelector(`.${team}_team_score`).innerHTML) + 1;
+
+                teamName = team == 'first' ? localStorage.getItem('first_team_name') : localStorage.getItem('second_team_name');
+                // update score
+                fetch('/updateScore/' + teamName + '/1/1')
+                .then(response => response.json())
+                .then(data => {});
+
+                getQuestion(false);
             }
+
+                // switch team
+                switchTeam();
+
         }
 
         // Fetch the question and choices
-        fetch('http://localhost:8080/startGame')
+        fetch('/startGame')
             .then(response => response.json())
             .then(data => {
                 document.querySelector('.first_team_name').innerHTML = data.First_team.Name;
@@ -128,29 +188,101 @@
 
         // Fetch the question and choices
         function getQuestion(first = true) {
-            fetch('http://localhost:8080/getQuestion')
+            fetch('/getQuestion')
             .then(response => response.json())
             .then(data => {
 
                 document.querySelector('.question').innerHTML = data.Question;
                     if (first) {
                         for (let i = 0; i < 4; i++) {
-                            document.querySelector('.choices').innerHTML += `<button class="w-full bg-gray-500 text-white p-2 m-2 rounded-lg" onclick="chooseAnswer(${i})">${data.Answers[i]}</button>`;
+                            document.querySelector('.choices').innerHTML += `<button class="w-full my-2 py-2 text-xl bg-gray-800 text-white rounded-lg" onclick="chooseAnswer(${i})">${data.Answers[i]}</button>`;
                         }
                     } else {
                         document.querySelector('.choices').innerHTML = ``
                         for (let i = 0; i < 4; i++) {
-                            document.querySelector('.choices').innerHTML += `<button class="w-full bg-gray-500 text-white p-2 m-2 rounded-lg" onclick="chooseAnswer(${i})">${data.Answers[i]}</button>`;
+                            document.querySelector('.choices').innerHTML += `<button class="w-full my-2 py-2 text-xl bg-gray-800 text-white rounded-lg" onclick="chooseAnswer(${i})">${data.Answers[i]}</button>`;
                         }
                     }
 
+                localStorage.setItem('next_team_answered', false);
                 localStorage.setItem('correctAnswer', data.CorrectAnswer);
             });
+        }
 
-            startTime();
+        function processStream() {
+                data = JSON.parse(event.data);
+                sorted = data.sort((a, b) => {
+                    return (b.FirstRound + b.SecondRound + b.ThirdRound + b.FourthRound) - (a.FirstRound + a.SecondRound + a.ThirdRound + a.FourthRound);
+                });
+
+                // append to bottom if eliminated
+                sorted = sorted.sort((a, b) => {
+                    return a.IsEliminated - b.IsEliminated;
+                });
+
+                body = document.querySelector('.teams_body');
+                body.innerHTML = ``;
+
+                sorted.forEach(team => {
+                    index = sorted.indexOf(team) + 1;
+                    if (team.IsEliminated) {
+                        body.innerHTML += `<tr class="bg-red-300">
+                            <td class="px-4 py-2 ">${index}</td>
+                            <td class="px-4 py-2 ">${team.Name}(Eliminated)</td>
+                            <td class="px-4 py-2">${team.FirstRound}</td>
+                            <td class="px-4 py-2 ">${team.SecondRound}</td>
+                            <td class="px-4 py-2">${team.ThirdRound}</td>
+                            <td class="px-4 py-2 ">${team.FourthRound}</td>
+                            <td class="px-4 py-2">${team.FirstRound + team.SecondRound + team.ThirdRound + team.FourthRound}</td>
+                        </tr>`;
+                    } else {
+                        body.innerHTML += `<tr>
+                            <td class="px-4 py-2 bg-gray-100">${index}</td>
+                            <td class="px-4 py-2 bg-gray-100">${team.Name}</td>
+                            <td class="px-4 py-2">${team.FirstRound}</td>
+                            <td class="px-4 py-2 bg-gray-100">${team.SecondRound}</td>
+                            <td class="px-4 py-2">${team.ThirdRound}</td>
+                            <td class="px-4 py-2 bg-gray-100">${team.FourthRound}</td>
+                            <td class="px-4 py-2">${team.FirstRound + team.SecondRound + team.ThirdRound + team.FourthRound}</td>
+                        </tr>`;
+                    }
+                });
+        }
+
+        function getStream() {
+            ws.onopen = function(event) {
+                console.log('Connection opened');
+            };
+
+            ws.onmessage = function(event) {
+                processStream();
+            };
+
+            ws.onclose = function(event) {
+                if (event.wasClean) {
+                    console.log(`Connection closed cleanly, code=${event.code}, reason=${event.reason}`);
+                } else {
+                        console.error("Connection closed unexpectedly. Attempting to reconnect...");
+                        retryCount = 0;
+                        maxRetries = 10;
+
+                        if (retryCount < maxRetries) {
+                            retryCount++;
+                            setTimeout(getStream, Math.min(1000 * Math.pow(2, retryCount), 30000)); // Exponential backoff
+                        } else {
+                            console.error("Max retries reached. Could not reconnect to WebSocket.");
+                        }
+                    }
+                };
+
+            ws.onerror = function(event) {
+                console.log('Error: ' + event);
+            };
         }
 
         getQuestion();
+        startTimer();
+
 </script>
 
 </html>

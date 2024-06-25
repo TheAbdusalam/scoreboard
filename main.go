@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -124,24 +125,30 @@ func (t Team) Update() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer file.Close()
 
 	reader := bufio.NewScanner(file)
 	var lines []string
 	for reader.Scan() {
 		line := reader.Text()
-		if strings.Contains(line, t.Name) {
+		name := strings.Split(line, "\t\t")
+		if strings.TrimSpace(name[0]) == t.Name {
 			line = t.Name + "\t\t" + "==> [" + strconv.Itoa(t.FirstRound) + ", " + strconv.Itoa(t.SecondRound) + ", " + strconv.Itoa(t.ThirdRound) + ", " + strconv.Itoa(t.FourthRound) + "] | " + strconv.FormatBool(t.IsEliminated) + " | " + strconv.FormatBool(t.Played)
 		}
 
 		lines = append(lines, line)
 	}
 
+	file.Close()
+
 	out, err := os.OpenFile("./Teams/teams.md", os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		log.Fatal("Error Opening Out file: ", err)
 	}
-	defer out.Close()
+	defer func() {
+		if err = out.Close(); err != nil {
+			log.Fatal("Error Closing Out file: ", err)
+		}
+	}()
 
 	for _, line := range lines {
 		if _, err = out.WriteString(line + "\n"); err != nil {
@@ -155,12 +162,9 @@ func teamParser() ([]Team, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer teamFile.Close()
 
 	reader := bufio.NewScanner(teamFile)
-	// skip the next 3 lines because they are the headers
-	for i := 0; i < 3; i++ {
-		reader.Scan()
-	}
 
 	var teams []Team
 	for reader.Scan() {
@@ -171,24 +175,42 @@ func teamParser() ([]Team, error) {
 		}
 
 		team := strings.Split(line, "==>")
+		if len(team) != 2 {
+			return nil, fmt.Errorf("invalid team format: %s", line)
+		}
+
 		teamScore := strings.Split(team[1], "|")
+		if len(teamScore) != 3 {
+			return nil, fmt.Errorf("invalid team score format: %s", team[1])
+		}
+
 		teamScore[0] = strings.ReplaceAll(teamScore[0], "[", "")
 		teamScore[0] = strings.ReplaceAll(teamScore[0], "]", "")
 		scores := strings.Split(teamScore[0], ",")
 
-		eliminated := strings.Trim(teamScore[1], " ")
-		eliminatedBool, _ := strconv.ParseBool(eliminated)
-
-		played := strings.Trim(teamScore[2], " ")
-		playedBool, _ := strconv.ParseBool(played)
+		if len(scores) != 4 {
+			return nil, fmt.Errorf("invalid score count: %s", teamScore[0])
+		}
 
 		teamScoreInt := make([]int, 4)
 		for i, score := range scores {
 			score = strings.TrimSpace(score)
 			teamScoreInt[i], err = strconv.Atoi(score)
 			if err != nil {
-				return nil, err
-			} 
+				return nil, fmt.Errorf("invalid score value: %s", score)
+			}
+		}
+
+		eliminated := strings.TrimSpace(teamScore[1])
+		eliminatedBool, err := strconv.ParseBool(eliminated)
+		if err != nil {
+			return nil, fmt.Errorf("invalid eliminated value: %s", eliminated)
+		}
+
+		played := strings.TrimSpace(teamScore[2])
+		playedBool, err := strconv.ParseBool(played)
+		if err != nil {
+			return nil, fmt.Errorf("invalid played value: %s", played)
 		}
 
 		teamObj := Team{
@@ -204,6 +226,10 @@ func teamParser() ([]Team, error) {
 		}
 
 		teams = append(teams, teamObj)
+	}
+
+	if err := reader.Err(); err != nil {
+		return nil, err
 	}
 
 	return teams, nil
@@ -238,16 +264,36 @@ func getTwoRandomTeamsThatHaventPlayed(teams []Team) (Team, Team) {
 	var team1, team2 Team
 	length := len(teams)
 
+	options := make([]Team, 0)
+
+	// remove the teams that have played
+	for i := 0; i < length; i++ {
+		if !teams[i].Played {
+			options = append(options, teams[i])
+		}
+	}
+
+	if len(options) < 2 {
+		return Team{}, Team{}
+	}
+
 	for i := 0; i <= length; i++ {
 		rand.NewSource(time.Now().UnixNano())
 		randNumOne := rand.Intn(length)
 		randNumTwo := rand.Intn(length)
+
+		if randNumOne == randNumTwo {
+			continue
+		}
+
 		team1 = teams[randNumOne]
 		team2 = teams[randNumTwo]
+		break
+	}
 
-		if team1.Name != team2.Name && !team1.Played && !team2.Played {
-			break
-		}
+
+	if team1.Name == "" || team2.Name == "" {
+		return Team{}, Team{}
 	}
 
 	return team1, team2
@@ -263,6 +309,8 @@ func main() {
 			return err
 		}
 
+		c.Set("Content-Type", "application/json")
+		c.Set("Access-Control-Allow-Origin", "*")
 		return c.JSON(teams)
 	})
 
@@ -289,8 +337,10 @@ func main() {
 		team1, team2 := getTwoRandomTeamsThatHaventPlayed(teams)
 		game.First_team = team1
 		game.Second_team = team2
-		game.Start()
+		game.Start() // TODO: PLEASE ENABLE TEAM.PLAYED TO TRUE
 
+		c.Set("Content-Type", "application/json")
+		c.Set("Access-Control-Allow-Origin", "*")
 		return json.NewEncoder(c).Encode(game)
 	})
 
@@ -305,6 +355,9 @@ func main() {
 		q.ParseTrivia()
 
 		question := q.GetQuestion(false)
+
+		c.Set("Content-Type", "application/json")
+		c.Set("Access-Control-Allow-Origin", "*")
 		return json.NewEncoder(c).Encode(question)
 	})
 
@@ -335,11 +388,37 @@ func main() {
 				}
 
 				team.Update()
+				break
 			}
 		}
 
 		return nil
 	})
 
-	log.Fatal(server.Listen(":8080"))
+	// stream the file to the client
+	server.Get("/stream", websocket.New(func(c *websocket.Conn) {
+		defer func() {
+			if err := c.Close(); err != nil {
+				log.Println("Error closing WebSocket connection:", err)
+			}
+		}()
+
+		for {
+			teams, err := teamParser()
+			if err != nil {
+				log.Println("Error parsing teams:", err)
+				return
+			}
+
+
+			if err := c.WriteJSON(teams); err != nil {
+				log.Println("Error writing JSON to WebSocket:", err)
+				return
+			}
+
+			time.Sleep(5 * time.Second)
+		}
+	}))
+
+	log.Fatal(server.Listen("localhost:8080"))
 }

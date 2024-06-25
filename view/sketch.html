@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sketching</title>
+    <script src="https://cdn.jsdelivr.net/npm/htmx.org@1"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="">
+        <div class="grid grid-flow-col align-center">
+            <!-- <div class="text-center text-4xl font-bold mt-10">Sketching Game</div> -->
+            <img src="logo.png" alt="logo" class="mx-auto h-32" />
+            <div class="">
+                <!-- Big Countdown of 2 minutes -->
+                <div class="text-center text-6xl font-bold mt-10" id="countdown">02:00</div>
+                <!-- <div class="text-center text-4xl font-bold mt-10">Word: <span id="word">Apple</span></div> -->
+            </div>
+        </div>
+        
+                <!-- Canvas for sketching -->
+                <div class="flex flex-col items-center mt-10">
+                    <canvas class="mx-auto mt-10 border-2 border-gray-500 " width="1200" height="400"></canvas>
+                    <button class="mx-auto mt-10 primary-bg hover:bg-red-700 text-white font-bold py-2 px-12 text-xl rounded">Clear</button>
+    </div>
+
+                <!-- Scoreboard Table of all teams and standings -->
+        <div class="mt-10 w-3/4 mx-auto">
+            <h1 class="text-5xl text-center font-bold">Standings</h1>
+            <hr class="w-1/5 mx-auto border-2 border-gray-300 my-5">
+            <table class="mx-auto text-2xl mb-20 table-auto border-collapse border-b-1 w-full overflow-hidden">
+                <thead>
+                    <tr class="text-left primary-bg text-white">
+                        <th class="px-4 py-2 bg-red-600"></th>
+                        <th class="px-4 py-2 bg-red-600">Name</th>
+                        <th class="px-4 py-2">First Round</th>
+                        <th class="px-4 py-2 bg-red-600">Second Round</th>
+                        <th class="px-4 py-2">Third Round</th>
+                        <th class="px-4 py-2 bg-red-600">Fourth Round</th>
+                        <th class="px-4 py-2">Total</th>
+                    </tr>
+                </thead>
+                <tbody class="teams_body"></tbody>
+            </table>
+        </div>
+
+</body>
+<style>
+    canvas {
+        cursor: crosshair;
+    }
+    .primary-bg {
+        background-color: #f83567;
+    }
+</style>
+<script>
+    // Countdown timer
+    let time = 120;
+    const countdown = document.querySelector('#countdown');
+    const timer = setInterval(() => {
+        time--;
+        const minutes = Math.floor(time / 60);
+        const seconds = time % 60;
+        countdown.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        if (time <= 0) {
+            clearInterval(timer);
+            countdown.textContent = 'Time is up!';
+        }
+    }, 1000);
+
+    // ----------------------------
+
+        var host = '127.0.0.1:8080';
+        var ws = new WebSocket('ws://' + host + '/stream');
+
+        document.addEventListener('domcontentloaded', function() {
+            getstream();
+        });
+
+        document.addEventListener('beforeunload', function() {
+            if (ws) {
+                ws.close();
+            }
+        });
+
+    // ----------------------------
+
+    // Canvas
+    const canvas = document.querySelector('canvas');
+    const ctx = canvas.getContext('2d');
+    let isDrawing = false;
+    let lastX = 0;
+    let lastY = 0;
+    canvas.addEventListener('mousedown', (e) => {
+        isDrawing = true;
+        [lastX, lastY] = [e.offsetX, e.offsetY];
+    });
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', () => isDrawing = false);
+    canvas.addEventListener('mouseout', () => isDrawing = false);
+    function draw(e) {
+        if (!isDrawing) return;
+        ctx.beginPath();
+        ctx.moveTo(lastX, lastY);
+        ctx.lineTo(e.offsetX, e.offsetY);
+        ctx.stroke();
+        [lastX, lastY] = [e.offsetX, e.offsetY];
+    }
+
+    // Clear button
+    document.querySelector('button').addEventListener('click', () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    });
+
+    
+        function processStream() {
+                data = JSON.parse(event.data);
+                sorted = data.sort((a, b) => {
+                    return (b.FirstRound + b.SecondRound + b.ThirdRound + b.FourthRound) - (a.FirstRound + a.SecondRound + a.ThirdRound + a.FourthRound);
+                });
+
+                // append to bottom if eliminated
+                sorted = sorted.sort((a, b) => {
+                    return a.IsEliminated - b.IsEliminated;
+                });
+
+                body = document.querySelector('.teams_body');
+                body.innerHTML = ``;
+
+                sorted.forEach(team => {
+                    index = sorted.indexOf(team) + 1;
+                    if (team.IsEliminated) {
+                        body.innerHTML += `<tr class="bg-red-300">
+                            <td class="px-4 py-2 ">${index}</td>
+                            <td class="px-4 py-2 ">${team.Name}(Eliminated)</td>
+                            <td class="px-4 py-2">${team.FirstRound}</td>
+                            <td class="px-4 py-2 ">${team.SecondRound}</td>
+                            <td class="px-4 py-2">${team.ThirdRound}</td>
+                            <td class="px-4 py-2 ">${team.FourthRound}</td>
+                            <td class="px-4 py-2">${team.FirstRound + team.SecondRound + team.ThirdRound + team.FourthRound}</td>
+                        </tr>`;
+                    } else {
+                        body.innerHTML += `<tr>
+                            <td class="px-4 py-2 bg-gray-100">${index}</td>
+                            <td class="px-4 py-2 bg-gray-100">${team.Name}</td>
+                            <td class="px-4 py-2">${team.FirstRound}</td>
+                            <td class="px-4 py-2 bg-gray-100">${team.SecondRound}</td>
+                            <td class="px-4 py-2">${team.ThirdRound}</td>
+                            <td class="px-4 py-2 bg-gray-100">${team.FourthRound}</td>
+                            <td class="px-4 py-2">${team.FirstRound + team.SecondRound + team.ThirdRound + team.FourthRound}</td>
+                        </tr>`;
+                    }
+                });
+        }
+
+        function getStream() {
+            ws.onopen = function(event) {
+                console.log('Connection opened');
+            };
+
+            ws.onmessage = function(event) {
+                processStream();
+            };
+
+            ws.onclose = function(event) {
+                if (event.wasClean) {
+                    console.log(`Connection closed cleanly, code=${event.code}, reason=${event.reason}`);
+                } else {
+                        console.error("Connection closed unexpectedly. Attempting to reconnect...");
+                        retryCount = 0;
+                        maxRetries = 10;
+
+                        if (retryCount < maxRetries) {
+                            retryCount++;
+                            setTimeout(getStream, Math.min(1000 * Math.pow(2, retryCount), 30000)); // Exponential backoff
+                        } else {
+                            console.error("Max retries reached. Could not reconnect to WebSocket.");
+                        }
+                    }
+                };
+
+            ws.onerror = function(event) {
+                console.log('Error: ' + event);
+            };
+        }
+
+</script>
+</html>

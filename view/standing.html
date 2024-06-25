@@ -1,0 +1,127 @@
+<html>
+    <head>
+        <title>Standing</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+    </head>
+    <body class="">
+        <!-- Scoreboard Table of all teams and standings -->
+        <div class="mt-10 w-3/4 mx-auto">
+            <h1 class="text-5xl text-center font-bold">Standings</h1>
+            <hr class="w-1/5 mx-auto border-2 border-gray-300 my-5">
+            <table class="mx-auto text-2xl mb-20 table-auto border-collapse border-b-1 w-full overflow-hidden">
+                <thead>
+                    <tr class="text-left primary-bg text-white">
+                        <th class="px-4 py-2 bg-red-600"></th>
+                        <th class="px-4 py-2 bg-red-600">Name</th>
+                        <th class="px-4 py-2">First Round</th>
+                        <th class="px-4 py-2 bg-red-600">Second Round</th>
+                        <th class="px-4 py-2">Third Round</th>
+                        <th class="px-4 py-2 bg-red-600">Fourth Round</th>
+                        <th class="px-4 py-2">Total</th>
+                    </tr>
+                </thead>
+                <tbody class="teams_body"></tbody>
+            </table>
+        </div>
+        <style>
+            .primary-bg {
+                background-color: #f83567;
+            }
+            .bg-red-300 {
+                background-color: #f87171;
+            }
+            .bg-gray-100 {
+                background-color: #f3f4f6;
+            }
+        </style>
+    </body>
+            <script>
+            var host = '127.0.0.1:8080';
+            var ws = new WebSocket('ws://' + host + '/stream');
+
+            document.addEventListener('DOMContentLoaded', function() {
+                getStream();
+            });
+
+            document.addEventListener('beforeunload', function() {
+                if (ws) {
+                    ws.close();
+                }
+            });
+
+             
+        function processStream() {
+                data = JSON.parse(event.data);
+                sorted = data.sort((a, b) => {
+                    return (b.FirstRound + b.SecondRound + b.ThirdRound + b.FourthRound) - (a.FirstRound + a.SecondRound + a.ThirdRound + a.FourthRound);
+                });
+
+                // append to bottom if eliminated
+                sorted = sorted.sort((a, b) => {
+                    return a.IsEliminated - b.IsEliminated;
+                });
+
+                body = document.querySelector('.teams_body');
+                body.innerHTML = ``;
+
+                sorted.forEach(team => {
+                    index = sorted.indexOf(team) + 1;
+                    if (team.IsEliminated) {
+                        body.innerHTML += `<tr class="bg-red-300">
+                            <td class="px-4 py-2 ">${index}</td>
+                            <td class="px-4 py-2 ">${team.Name}(Eliminated)</td>
+                            <td class="px-4 py-2">${team.FirstRound}</td>
+                            <td class="px-4 py-2 ">${team.SecondRound}</td>
+                            <td class="px-4 py-2">${team.ThirdRound}</td>
+                            <td class="px-4 py-2 ">${team.FourthRound}</td>
+                            <td class="px-4 py-2">${team.FirstRound + team.SecondRound + team.ThirdRound + team.FourthRound}</td>
+                        </tr>`;
+                    } else {
+                        body.innerHTML += `<tr>
+                            <td class="px-4 py-2 bg-gray-100">${index}</td>
+                            <td class="px-4 py-2 bg-gray-100">${team.Name}</td>
+                            <td class="px-4 py-2">${team.FirstRound}</td>
+                            <td class="px-4 py-2 bg-gray-100">${team.SecondRound}</td>
+                            <td class="px-4 py-2">${team.ThirdRound}</td>
+                            <td class="px-4 py-2 bg-gray-100">${team.FourthRound}</td>
+                            <td class="px-4 py-2">${team.FirstRound + team.SecondRound + team.ThirdRound + team.FourthRound}</td>
+                        </tr>`;
+                    }
+                });
+        }
+
+        function getStream() {
+            ws.onopen = function(event) {
+                console.log('Connection opened');
+            };
+
+            ws.onmessage = function(event) {
+                processStream();
+            };
+
+            ws.onclose = function(event) {
+                if (event.wasClean) {
+                    console.log(`Connection closed cleanly, code=${event.code}, reason=${event.reason}`);
+                } else {
+                        console.error("Connection closed unexpectedly. Attempting to reconnect...");
+                        retryCount = 0;
+                        maxRetries = 10;
+
+                        if (retryCount < maxRetries) {
+                            retryCount++;
+                            setTimeout(getStream, Math.min(1000 * Math.pow(2, retryCount), 30000)); // Exponential backoff
+                        } else {
+                            console.error("Max retries reached. Could not reconnect to WebSocket.");
+                        }
+                    }
+                };
+
+            ws.onerror = function(event) {
+                console.log('Error: ' + event);
+            };
+        }
+
+        </script>
+
+
+</html>

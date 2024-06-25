@@ -1,5 +1,5 @@
-What is the difference between a compiler and an interpreter? => [Working with arrays, To locate a variable in memory, To delete, All, 3]
-Who invented the World Wide Web? => [Working with arrays, To locate a variable in memory, To delete, All, 3]
-What does "AR" stand for in augmented reality? => [Working with arrays, To locate a variable in memory, To delete, All, 2]
+What is the difference between a compiler and an interpreter? => [Working with arrays, To locate a variable in memory, To delete, All, 2]
+Who invented the World Wide Web? => [Working with arrays, To locate a variable in memory, To delete, All, 2]
+What does "AR" stand for in augmented reality? => [Working with arrays, To locate a variable in memory, T2 delete, All, 2]
 What is the primary goal of quantum computing? => [Working with arrays, To locate a variable in memory, To delete, All, 2]
 What was the first web browser called? => [Working with arrays, To locate a variable in memory, To delete, All, 2]
